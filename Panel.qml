@@ -176,7 +176,7 @@ Panel {
     open: root.opened
     focusTarget: queryField
     centerOnBar: true
-    contentWidth: panel.fittedContentWidth(Style.space(480))
+    contentWidth: panel.fittedContentWidth(Style.space(520))
     contentHeight: panel.fittedContentHeight(content.implicitHeight)
 
     PanelKeyCatcher {
@@ -409,18 +409,23 @@ Panel {
           foreground: root.contentForeground
         }
 
-        // Two fixed columns rather than a Flow: the legend then always
-        // breaks in the same place instead of orphaning a hint whenever the
-        // theme's font or spacing scale shifts the wrap point.
-        Grid {
-          columns: 2
-          columnSpacing: Style.space(16)
-          rowSpacing: Style.space(8)
+        // One row rather than a Flow or Grid: the gaps absorb whatever
+        // width is left over, so the legend spreads across the panel and
+        // never wraps or orphans a hint when the theme rescales fonts.
+        Row {
+          id: legend
+          width: parent.width
 
-          KeyHint { keys: root.shortcutLabel(); label: "open anywhere" }
-          KeyHint { keys: "Enter"; label: "search" }
-          KeyHint { keys: "Ctrl+0–9"; label: "pick engine" }
-          KeyHint { keys: "Esc"; label: "close" }
+          readonly property int hintsWidth: openHint.implicitWidth + enterHint.implicitWidth
+            + engineHint.implicitWidth + escHint.implicitWidth
+
+          spacing: Math.max(Style.space(8),
+                            Math.floor((width - hintsWidth) / 3))
+
+          KeyHint { id: openHint; keys: root.shortcutLabel(); label: "open anywhere" }
+          KeyHint { id: enterHint; keys: "Enter"; label: "search" }
+          KeyHint { id: engineHint; keys: "Ctrl+0–9"; label: "pick engine" }
+          KeyHint { id: escHint; keys: "Esc"; label: "close" }
         }
       }
     }
