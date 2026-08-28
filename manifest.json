@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.sahzudin.omarchy-google-search",
+  "name": "Web Search",
+  "version": "1.1.0",
+  "author": "Sahzudin",
+  "license": "MIT",
+  "description": "Quickly search the web with a click: pick a search engine with Ctrl+1-9 and open your browser to the results.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Web Search",
+    "description": "Click the icon, type a query, pick an engine with Ctrl+1-9, and open your browser to the results.",
+    "category": "Utilities",
+    "allowMultiple": false,
+    "defaultSection": "left",
+    "defaults": {
+      "defaultEngine": "google",
+      "openShortcut": "SUPER + ALT + P",
+      "icon": "󰍋"
+    },
+    "schema": [
+      { "key": "defaultEngine", "type": "string", "label": "Default search engine (id)", "defaultValue": "google" },
+      { "key": "openShortcut", "type": "string", "label": "Open-panel shortcut (Hyprland combo)", "defaultValue": "SUPER + ALT + P" },
+      { "key": "icon", "type": "string", "label": "Bar icon (Nerd Font glyph)", "defaultValue": "󰍋" }
+    ]
+  }
+}
