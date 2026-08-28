@@ -42,10 +42,8 @@ are evaluated).
 
 ## Install
 
-Once this repository has a Git remote:
-
 ```bash
-omarchy plugin add https://github.com/sahzudin/omarchy-google-search.git --enable
+omarchy plugin add https://github.com/sahzudin/omarchy-search.git --enable
 ```
 
 The plugin does not change your Hyprland configuration during installation.
@@ -63,7 +61,7 @@ For local development, link the checkout into the user plugin directory and
 enable it:
 
 ```bash
-ln -s ~/Projects/omarchy-google-search \
+ln -s ~/Projects/omarchy-search \
       ~/.config/omarchy/plugins/io.github.sahzudin.omarchy-google-search
 omarchy plugin enable io.github.sahzudin.omarchy-google-search left
 ```
