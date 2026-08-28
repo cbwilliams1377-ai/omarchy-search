@@ -53,9 +53,12 @@ To opt into the optional **Super+Alt+P** global shortcut, run:
 python3 ~/.config/omarchy/plugins/io.github.sahzudin.omarchy-google-search/scripts/bindings.py install
 ```
 
-The helper first verifies that the key is free, backs up
+The helper first verifies that the key is free, safely backs up
 `~/.config/hypr/bindings.lua`, adds one clearly marked binding block, and
-reloads Hyprland. The plugin itself works normally without this shortcut.
+reloads Hyprland. It refuses symlinks and non-regular files anywhere in that
+path and atomically replaces the configuration only after the backup and new
+contents have been synced. The plugin itself works normally without this
+shortcut.
 
 For local development, link the checkout into the user plugin directory and
 enable it:
