@@ -9,6 +9,7 @@ BarWidget {
   readonly property string barIcon: setting("icon", "󰍋")
   readonly property string defaultEngine: setting("defaultEngine", "google")
   readonly property string openShortcut: setting("openShortcut", "SUPER + ALT + P")
+  readonly property string imageHost: setting("imageHost", "auto")
 
   readonly property var engines: [
     { id: "google",       label: "Google",         prefix: "https://www.google.com/search?q=",          icon: 0xF1A0 },
@@ -55,6 +56,7 @@ BarWidget {
     panelLoader.item.defaultEngine = root.defaultEngine
     panelLoader.item.openShortcut = root.openShortcut
     panelLoader.item.barIcon = root.barIcon
+    panelLoader.item.imageHost = root.imageHost
   }
 
   implicitWidth: button.implicitWidth

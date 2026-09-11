@@ -26,6 +26,22 @@ a query, and press **Enter** — the results open in your default browser.
   Ctrl+0–9, and Esc.
 - `Enter` opens the results in your default browser (`omarchy launch browser`),
   which reuses an already-running browser window and adds a new tab.
+- `Ctrl+V` (or omarchy's `Super+V` universal paste, which synthesizes it) pastes
+  text as usual *and*, when the clipboard holds an image, attaches it: a
+  thumbnail chip appears with a description of what the selected engine will do
+  and a way to remove it. The paperclip icon beside the submit hint does the
+  same.
+- Image search: the clipboard image is uploaded to an anonymous image host to
+  get a public URL, then sent to the engine — Google Lens reverse search, Bing
+  Visual Search, or embedded into a ChatGPT/Claude prompt next to your text.
+  Engines without image support (GitHub, Reddit, YouTube, …) fall back to a
+  plain text search. The default host (`auto`) is Catbox for ChatGPT/Claude —
+  Litterbox's anti-bot rules return 403 to their image fetchers — and Litterbox
+  (auto-deleted after 1 hour) for Google/Bing, whose URLs are opened by your
+  own browser. Uploads fall back to the next host in the chain automatically.
+  With ChatGPT/Claude, the image is embedded by URL, which is best-effort: if a
+  chat ever shows a link instead of the image, paste it directly with
+  `Ctrl+V`.
 - `Esc` closes the panel without running a search.
 - Supports shell IPC (`open`, `close`, `toggle`, `show`, `hide`).
 
@@ -84,6 +100,8 @@ omarchy-shell shell rescanPlugins
   in your browser.
 - Press **Ctrl+1**…**Ctrl+9** (or click a tile) to pick the search engine, then
   press **Enter**.
+- Copy a screenshot or image, then press **Ctrl+V** in the panel — the image
+  attaches (thumbnail chip appears). Press **Enter** to search it.
 - Press **Esc** — close the panel without searching.
 
 ## Configuration
@@ -96,12 +114,19 @@ under `bar.layout.<section>`:
   "id": "io.github.sahzudin.omarchy-google-search",
   "defaultEngine": "google",     // id of the engine preselected when the panel opens
   "openShortcut": "SUPER + ALT + P", // global panel shortcut (Hyprland combo)
-  "icon": "󰍋"                    // any Nerd Font glyph
+  "icon": "󰍋",                   // any Nerd Font glyph
+  "imageHost": "auto"            // image host: auto (default), catbox, litterbox, or 0x0
 }
 ```
 
 Engine ids: `google`, `chatgpt`, `claude`, `bing`, `duckduckgo`, `github`,
 `wikipedia`, `youtube`, `reddit`, `stackoverflow`.
+
+Image hosts (`imageHost`): `auto` uses Catbox for ChatGPT/Claude prompts and
+Litterbox for Google/Bing reverse search; `catbox` keeps persistent links;
+`litterbox` auto-deletes after 1 hour but is rejected by ChatGPT's fetcher;
+`0x0` expires after ~30 days. Whatever the preference, a failed upload falls
+back to the remaining hosts before giving up.
 
 The file hot-reloads on save.
 

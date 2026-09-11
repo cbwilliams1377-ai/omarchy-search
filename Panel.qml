@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
@@ -15,6 +16,16 @@ Panel {
   property string barIcon: "󰍋"
   property string previousQuery: ""
   property bool busy: false
+  property string attachedImage: ""
+  property bool attachRunning: false
+
+  // The helper that moves a clipboard image into a URL-embeddable form.
+  // Qt.resolvedUrl yields a file:// URI; exec needs the plain path.
+  readonly property string searchScript: (function() {
+    var url = Qt.resolvedUrl("scripts/search.py").toString()
+    if (url.startsWith("file://")) url = url.slice("file://".length)
+    return url
+  })()
 
   property var engines: [
     { id: "google",       label: "Google",         prefix: "https://www.google.com/search?q=",          icon: 0xF1A0 },
@@ -30,6 +41,7 @@ Panel {
   ]
   property string defaultEngine: "google"
   property string openShortcut: "SUPER + ALT + P"
+  property string imageHost: "auto"
 
   property int currentEngineIndex: -1
   readonly property var currentEngine: {
@@ -144,6 +156,34 @@ Panel {
     else root.open()
   }
 
+  function attachFromClipboard() {
+    if (root.attachRunning) return
+    root.attachRunning = true
+    attachProcess.command = ["python3", root.searchScript, "attach"]
+    attachProcess.running = true
+  }
+
+  // Called on Ctrl+V: paste the text clipboard as usual, then attach an
+  // image if the clipboard holds one. Attaching is async, so both can
+  // complete; text-body paste is a no-op on an image clipboard.
+  function onPasteShortcut() {
+    queryField.paste()
+    root.attachFromClipboard()
+  }
+
+  function removeAttachment() {
+    root.attachedImage = ""
+  }
+
+  function imageActionLabel(engine) {
+    if (!engine) return ""
+    if (engine.id === "google") return "Reverse image search via Google Lens"
+    if (engine.id === "bing") return "Reverse image search via Bing Visual"
+    if (engine.id === "chatgpt") return "Image rides into your ChatGPT prompt"
+    if (engine.id === "claude") return "Image rides into your Claude prompt"
+    return "Image is not sent to this engine"
+  }
+
   function switchPanel(direction) {
     if (root.bar && typeof root.bar.switchPanelFrom === "function")
       return root.bar.switchPanelFrom(root.barIdentity, direction)
@@ -153,19 +193,57 @@ Panel {
   function runSearch() {
     var raw = queryField.text.trim()
     if (root.busy) return
-    if (raw.length === 0) {
+    if (raw.length === 0 && root.attachedImage.length === 0) {
       queryField.forceActiveFocus()
       return
     }
 
     root.previousQuery = raw
     var engine = root.currentEngine
+
+    // With an image attached the helper uploads it and opens the right
+    // engine entry point (reverse image search or a prompt that includes
+    // the image), so the browser URL cannot be built inline here.
+    if (root.attachedImage.length > 0) {
+      root.busy = true
+      Quickshell.execDetached([
+        "python3", root.searchScript, "search",
+        "--engine", engine ? engine.id : "google",
+        "--query", raw,
+        "--image", root.attachedImage,
+        "--host", root.imageHost
+      ])
+      root.busy = false
+      root.attachedImage = ""
+      root.close()
+      queryField.text = ""
+      return
+    }
+
     var url = (engine ? engine.prefix : "") + encodeURIComponent(raw)
     root.busy = true
     Quickshell.execDetached(["omarchy", "launch", "browser", url])
     root.busy = false
     root.close()
     queryField.text = ""
+  }
+
+  // Asynchronous clipboard-image resolution: prints the temp image path on
+  // stdout, or exits nonzero when the clipboard holds no image.
+  Process {
+    id: attachProcess
+    running: false
+    command: []
+
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var path = String(text || "").trim()
+        if (path.length > 0) root.attachedImage = path
+      }
+    }
+
+    onExited: root.attachRunning = false
   }
 
   KeyboardPanel {
@@ -184,6 +262,14 @@ Panel {
       blocked: queryField.activeFocus
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
+
+      // Ctrl+V (which omarchy's Super+V universal paste also synthesizes)
+      // pastes text as usual and attaches a clipboard image when present.
+      Shortcut {
+        sequence: "Ctrl+V"
+        context: Qt.WindowShortcut
+        onActivated: root.onPasteShortcut()
+      }
 
       Column {
         id: content
@@ -225,10 +311,10 @@ Panel {
           font.family: root.contentFontFamily
           font.pixelSize: Style.font.subtitle
           verticalPadding: Style.space(9)
-          // Reserve the gutters the leading magnifier and the trailing
-          // submit affordance are drawn into.
+          // Reserve the gutters the leading magnifier, the trailing submit
+          // affordance, and the attach button are drawn into.
           leftPadding: Style.space(34)
-          rightPadding: Style.space(34)
+          rightPadding: Style.space(62)
           onAccepted: root.runSearch()
           Keys.onEscapePressed: root.close()
 
@@ -285,6 +371,127 @@ Panel {
             PanelToolTip {
               visible: submitMouse.containsMouse
               text: "Open the results"
+              fontFamily: root.contentFontFamily
+            }
+          }
+
+          Text {
+            id: attachIcon
+            textFormat: Text.PlainText
+            anchors.right: submitHint.left
+            anchors.rightMargin: Style.space(8)
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.glyph(0xF0C6)
+            color: root.attachedImage.length > 0
+              ? root.contentAccent
+              : (attachMouse.containsMouse ? root.contentForeground : root.contentDim)
+            font.family: root.contentFontFamily
+            font.pixelSize: Style.font.body
+
+            Behavior on color {
+              ColorAnimation { duration: 120 }
+            }
+
+            MouseArea {
+              id: attachMouse
+              anchors.fill: parent
+              anchors.margins: -Style.space(6)
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.attachFromClipboard()
+            }
+
+            PanelToolTip {
+              visible: attachMouse.containsMouse
+              text: root.attachedImage.length > 0
+                ? "Replace attached image"
+                : "Attach image from clipboard"
+              fontFamily: root.contentFontFamily
+            }
+          }
+        }
+
+        // Clipboard-image attachment: thumbnail plus what the selected engine
+        // will do with it, and a remove button. Collapses away when cleared.
+        Rectangle {
+          id: attachmentChip
+          visible: root.attachedImage.length > 0
+          width: parent.width
+          height: Style.space(54)
+          radius: Style.cornerRadius
+          color: Style.normalFillFor(root.contentForeground, root.contentAccent)
+          border.color: Qt.rgba(
+            root.contentAccent.r, root.contentAccent.g, root.contentAccent.b, 0.35)
+          border.width: 1
+
+          Image {
+            id: thumbnail
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: Style.space(8)
+            width: Style.space(38)
+            height: Style.space(38)
+            source: "file://" + root.attachedImage
+            sourceSize: Qt.size(76, 76)
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+          }
+
+          Column {
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: thumbnail.right
+            anchors.leftMargin: Style.space(10)
+            anchors.right: removeIcon.left
+            anchors.rightMargin: Style.space(8)
+            spacing: Style.space(1)
+
+            Text {
+              textFormat: Text.PlainText
+              text: "Image attached"
+              color: root.contentForeground
+              font.family: root.contentFontFamily
+              font.pixelSize: Style.font.caption
+              font.bold: true
+            }
+
+            Text {
+              textFormat: Text.PlainText
+              width: parent.width
+              text: root.imageActionLabel(root.currentEngine)
+              color: root.contentDim
+              font.family: root.contentFontFamily
+              font.pixelSize: Style.font.caption
+              elide: Text.ElideRight
+            }
+          }
+
+          Text {
+            id: removeIcon
+            textFormat: Text.PlainText
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(10)
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.glyph(0xF00D)
+            color: removeMouse.containsMouse ? root.contentForeground : root.contentDim
+            font.family: root.contentFontFamily
+            font.pixelSize: Style.font.body
+
+            Behavior on color {
+              ColorAnimation { duration: 120 }
+            }
+
+            MouseArea {
+              id: removeMouse
+              anchors.fill: parent
+              anchors.margins: -Style.space(6)
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.removeAttachment()
+            }
+
+            PanelToolTip {
+              visible: removeMouse.containsMouse
+              text: "Remove image"
               fontFamily: root.contentFontFamily
             }
           }
@@ -417,14 +624,15 @@ Panel {
           width: parent.width
 
           readonly property int hintsWidth: openHint.implicitWidth + enterHint.implicitWidth
-            + engineHint.implicitWidth + escHint.implicitWidth
+            + engineHint.implicitWidth + attachHint.implicitWidth + escHint.implicitWidth
 
           spacing: Math.max(Style.space(8),
-                            Math.floor((width - hintsWidth) / 3))
+                            Math.floor((width - hintsWidth) / 4))
 
           KeyHint { id: openHint; keys: root.shortcutLabel(); label: "open anywhere" }
           KeyHint { id: enterHint; keys: "Enter"; label: "search" }
           KeyHint { id: engineHint; keys: "Ctrl+0–9"; label: "pick engine" }
+          KeyHint { id: attachHint; keys: "Ctrl+V"; label: "paste image" }
           KeyHint { id: escHint; keys: "Esc"; label: "close" }
         }
       }
